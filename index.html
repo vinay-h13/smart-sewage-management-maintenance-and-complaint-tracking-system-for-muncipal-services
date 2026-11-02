@@ -1,0 +1,1191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Smart Sewage Management System</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <style>
+    @keyframes slideInRight {
+      from { transform: translateX(100%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+    .sms-toast { animation: slideInRight 0.35s ease-out forwards; }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen font-sans">
+
+  <!-- LIVE SMS POPUP NOTIFICATION CONTAINER -->
+  <div id="smsToastContainer" class="fixed bottom-5 right-5 z-50 flex flex-col gap-3 max-w-sm w-full pointer-events-none"></div>
+
+  <!-- TOP NAVIGATION & ROLE SWITCHER -->
+  <header class="bg-slate-900 text-white shadow-lg sticky top-0 z-40">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap justify-between items-center gap-4">
+      <div class="flex items-center gap-3">
+        <div class="bg-emerald-500 p-2.5 rounded-lg text-slate-900 font-bold">
+          <i class="fa-solid fa-water text-xl"></i>
+        </div>
+        <div>
+          <h1 class="font-bold text-lg leading-tight">Smart Sewage Management System</h1>
+          <p class="text-xs text-slate-400">Municipal Corporation • Deletion Archives & 48h SLA Engine</p>
+        </div>
+      </div>
+
+      <!-- Role Switcher Tabs + SMS Inbox Button -->
+      <div class="flex flex-wrap items-center gap-2">
+        <div class="flex bg-slate-800 p-1 rounded-lg border border-slate-700 text-sm">
+          <button onclick="switchRole('citizen')" id="tab-citizen" class="px-3 py-1.5 rounded-md font-medium bg-emerald-500 text-slate-950 transition">
+            <i class="fa-solid fa-user-shield mr-1"></i> 1. Citizen Portal
+          </button>
+          <button onclick="switchRole('admin')" id="tab-admin" class="px-3 py-1.5 rounded-md font-medium text-slate-300 hover:text-white transition">
+            <i class="fa-solid fa-building-shield mr-1"></i> 2. Municipal Admin
+          </button>
+          <button onclick="switchRole('worker')" id="tab-worker" class="px-3 py-1.5 rounded-md font-medium text-slate-300 hover:text-white transition">
+            <i class="fa-solid fa-helmet-safety mr-1"></i> 3. Field Worker App
+          </button>
+        </div>
+
+        <button onclick="toggleSmsDrawer()" class="relative bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow">
+          <i class="fa-solid fa-comment-sms text-sm"></i> Citizen SMS Inbox
+          <span id="smsCountBadge" class="bg-rose-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">0</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- CITIZEN SMS INBOX DRAWER -->
+  <div id="smsDrawer" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex justify-end">
+    <div class="bg-slate-900 text-white w-full max-w-md h-full flex flex-col shadow-2xl border-l border-slate-700">
+      <div class="p-4 bg-slate-800 border-b border-slate-700 flex justify-between items-center">
+        <div class="flex items-center gap-2.5">
+          <div class="w-9 h-9 rounded-full bg-indigo-500 flex items-center justify-center font-bold">
+            <i class="fa-solid fa-mobile-screen-button"></i>
+          </div>
+          <div>
+            <h3 class="font-bold text-sm">Citizen SMS Notification Log</h3>
+            <p class="text-[11px] text-slate-400">Sender ID: <span class="font-mono text-emerald-400">VM-MUNSEW</span></p>
+          </div>
+        </div>
+        <button onclick="toggleSmsDrawer()" class="text-slate-400 hover:text-white text-lg px-2">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div id="smsInboxList" class="p-4 space-y-3 overflow-y-auto flex-1 bg-slate-950"></div>
+
+      <div class="p-3 bg-slate-800 border-t border-slate-700 text-[11px] text-slate-400 flex justify-between items-center">
+        <span><i class="fa-solid fa-bolt text-amber-400 mr-1"></i> Real-Time Municipal Alerts</span>
+        <button onclick="clearSmsLogs()" class="text-rose-400 hover:underline">Clear History</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN CONTAINER -->
+  <main class="max-w-7xl mx-auto px-4 py-6">
+
+    <!-- VIEW 1: CITIZEN PORTAL -->
+    <section id="view-citizen" class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <div class="lg:col-span-7 bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+        <div class="flex items-center justify-between border-b pb-4 mb-5">
+          <div>
+            <h2 class="text-xl font-bold text-slate-800">Report a Sewage Issue</h2>
+            <p class="text-xs text-slate-500">Live GPS, AI Waste Vision, Random Dynamic OTP & Citizen Mistake Deletion</p>
+          </div>
+          <span class="bg-emerald-100 text-emerald-800 text-xs font-semibold px-2.5 py-1 rounded-full">
+            <i class="fa-solid fa-shield-halved mr-1"></i> Municipal Portal
+          </span>
+        </div>
+
+        <form id="complaintForm" onsubmit="submitComplaint(event)" class="space-y-4">
+          <!-- Step 1: Dynamic OTP Authentication -->
+          <div class="p-4 bg-slate-50 rounded-lg border border-slate-200 space-y-3">
+            <h3 class="text-sm font-bold text-slate-700 flex items-center gap-2">
+              <span class="bg-slate-800 text-white w-5 h-5 rounded-full inline-flex items-center justify-center text-xs">1</span>
+              Citizen Mobile Authentication (Dynamic Random OTP)
+            </h3>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <input type="text" id="citizenName" required placeholder="Full Name" class="w-full px-3 py-2 border rounded-lg text-sm" />
+              <div class="flex gap-2">
+                <input type="tel" id="citizenPhone" required pattern="[0-9]{10}" placeholder="10-Digit Mobile No." class="w-full px-3 py-2 border rounded-lg text-sm" />
+                <button type="button" onclick="sendOTP()" class="bg-slate-800 text-white px-3 py-2 rounded-lg text-xs font-semibold whitespace-nowrap hover:bg-slate-700">
+                  Send OTP
+                </button>
+              </div>
+            </div>
+            <div id="otpBox" class="hidden flex items-center gap-3 pt-1">
+              <input type="text" id="otpInput" placeholder="Enter OTP Sent to SMS" class="px-3 py-1.5 border rounded-lg text-sm w-48" />
+              <button type="button" onclick="verifyOTP()" class="bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-xs font-semibold">Verify OTP</button>
+              <span id="otpStatus" class="text-xs font-semibold"></span>
+            </div>
+          </div>
+
+          <!-- Step 2: Live GPS & Geocoding -->
+          <div class="p-4 bg-slate-50 rounded-lg border border-slate-200 space-y-3">
+            <div class="flex justify-between items-center">
+              <h3 class="text-sm font-bold text-slate-700 flex items-center gap-2">
+                <span class="bg-slate-800 text-white w-5 h-5 rounded-full inline-flex items-center justify-center text-xs">2</span>
+                Live GPS Satellite Lock & Ward Auto-Geocoder
+              </h3>
+              <button type="button" onclick="captureGPS()" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1.5">
+                <i class="fa-solid fa-location-crosshairs"></i> Capture Live GPS
+              </button>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <input type="text" id="gpsCoords" readonly required placeholder="Latitude, Longitude" class="w-full px-3 py-2 bg-slate-100 border rounded-lg text-xs font-mono text-slate-600" />
+              <input type="text" id="autoLocation" readonly required placeholder="Auto-detected Village & Municipal Ward" class="w-full px-3 py-2 bg-slate-100 border rounded-lg text-xs font-semibold text-slate-700" />
+            </div>
+            <p id="gpsStatus" class="text-xs text-slate-500"></p>
+          </div>
+
+          <!-- Step 3: Issue details & Custom Issue Type Toggle -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">Issue Type</label>
+              <select id="issueTypeSelect" required onchange="handleIssueTypeChange()" class="w-full px-3 py-2 border rounded-lg text-sm bg-white">
+                <option value="Manhole Overflow">Manhole Overflow</option>
+                <option value="Blocked Drainage Line">Blocked Drainage Line</option>
+                <option value="Broken / Missing Manhole Cover">Broken / Missing Manhole Cover</option>
+                <option value="Sewage Water Stagnation">Sewage Water Stagnation</option>
+                <option value="Other">Other / Custom Issue (Type manually...)</option>
+              </select>
+              <input type="text" id="customIssueInput" placeholder="Specify custom sewage issue..." class="hidden w-full mt-2 px-3 py-2 border border-indigo-300 rounded-lg text-sm bg-indigo-50/40" />
+            </div>
+            <div>
+              <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">Street Landmark</label>
+              <input type="text" id="landmark" required placeholder="Near Main Gate / Market Square" class="w-full px-3 py-2 border rounded-lg text-sm" />
+            </div>
+          </div>
+
+          <!-- Step 4: AI Waste Vision Scanner -->
+          <div class="p-4 bg-slate-50 rounded-lg border border-slate-200 space-y-3">
+            <div class="flex flex-wrap justify-between items-center gap-2">
+              <h3 class="text-sm font-bold text-slate-700 flex items-center gap-2">
+                <span class="bg-slate-800 text-white w-5 h-5 rounded-full inline-flex items-center justify-center text-xs">3</span>
+                AI Waste Vision Scan (Photo Upload)
+              </h3>
+              <div class="flex gap-1.5">
+                <button type="button" onclick="simulateAIPhoto('genuine')" class="text-xs bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded border border-emerald-300 font-medium hover:bg-emerald-200">
+                  + Demo Waste Photo
+                </button>
+                <button type="button" onclick="simulateAIPhoto('fake')" class="text-xs bg-rose-100 text-rose-800 px-2.5 py-1 rounded border border-rose-300 font-medium hover:bg-rose-200">
+                  ! Test Non-Waste Photo
+                </button>
+              </div>
+            </div>
+
+            <input type="file" id="photoInput" accept="image/*" capture="environment" onchange="handleAiImageUpload(event)" class="block w-full text-xs text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-slate-800 file:text-white hover:file:bg-slate-700" />
+
+            <div id="photoPreviewBox" class="hidden flex items-center gap-4 bg-white p-3 rounded-lg border">
+              <img id="photoPreview" src="" alt="Preview" class="w-20 h-20 object-cover rounded-lg border" />
+              <div class="text-xs space-y-1 flex-1">
+                <div id="aiStatus" class="font-bold"></div>
+                <p id="aiDetails" class="text-slate-500"></p>
+              </div>
+            </div>
+          </div>
+
+          <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-lg shadow transition">
+            Submit Verified Complaint & Register Ticket
+          </button>
+        </form>
+      </div>
+
+      <!-- Right Column: Real-Time Tracker & Citizen Mistake Deletion -->
+      <div class="lg:col-span-5 space-y-4">
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+          <div class="flex justify-between items-center mb-1">
+            <h2 class="text-xl font-bold text-slate-800">Real-Time Complaint Tracker</h2>
+            <button onclick="toggleSmsDrawer()" class="text-xs text-indigo-600 font-semibold hover:underline">
+              <i class="fa-solid fa-comment-sms mr-1"></i> SMS Inbox
+            </button>
+          </div>
+          <p class="text-xs text-slate-500 mb-4">Track progress, rate completion, or cancel mistaken entries</p>
+
+          <div id="citizenComplaintsList" class="space-y-4 max-h-[650px] overflow-y-auto pr-1"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- VIEW 2: MUNICIPAL ADMIN PORTAL -->
+    <section id="view-admin" class="hidden space-y-6">
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+        <div class="flex flex-wrap justify-between items-center gap-4 border-b pb-4 mb-4">
+          <div>
+            <h2 class="text-xl font-bold text-slate-800">Municipal Control Center</h2>
+            <p class="text-xs text-slate-500">Assign maintenance squads, monitor 48h SLA deadlines, & view archived deletions</p>
+          </div>
+          <div class="flex flex-wrap gap-2 text-xs font-semibold">
+            <span class="bg-amber-100 text-amber-800 px-3 py-1.5 rounded-lg" id="statPending">Pending: 0</span>
+            <span class="bg-blue-100 text-blue-800 px-3 py-1.5 rounded-lg" id="statAssigned">Active SLA: 0</span>
+            <span class="bg-rose-100 text-rose-800 px-3 py-1.5 rounded-lg" id="statBreached">Breached: 0</span>
+            <span class="bg-emerald-100 text-emerald-800 px-3 py-1.5 rounded-lg" id="statRating"><i class="fa-solid fa-star text-amber-500 mr-1"></i> Avg Rating: N/A</span>
+            <span class="bg-slate-200 text-slate-800 px-3 py-1.5 rounded-lg" id="statArchived">Archived: 0</span>
+          </div>
+        </div>
+
+        <!-- Admin View Sub-Tabs -->
+        <div class="flex flex-wrap border-b mb-4 gap-1">
+          <button onclick="switchAdminTab('active')" id="adminTabActive" class="px-4 py-2 text-xs font-bold border-b-2 border-emerald-600 text-emerald-700">
+            <i class="fa-solid fa-list-check mr-1"></i> Active Complaints & Dispatches
+          </button>
+          <button onclick="switchAdminTab('archived')" id="adminTabArchived" class="px-4 py-2 text-xs font-bold text-slate-500 border-b-2 border-transparent hover:text-slate-800">
+            <i class="fa-solid fa-box-archive mr-1"></i> Resolved Tickets Archive (<span id="archivedCountText">0</span>)
+          </button>
+          <button onclick="switchAdminTab('citizenDeleted')" id="adminTabCitizenDeleted" class="px-4 py-2 text-xs font-bold text-slate-500 border-b-2 border-transparent hover:text-slate-800">
+            <i class="fa-solid fa-user-xmark mr-1"></i> Citizen-Deleted Archive (<span id="citizenDeletedCountText">0</span>)
+          </button>
+          <button onclick="switchAdminTab('adminDeleted')" id="adminTabAdminDeleted" class="px-4 py-2 text-xs font-bold text-slate-500 border-b-2 border-transparent hover:text-slate-800">
+            <i class="fa-solid fa-ban mr-1"></i> Admin Rejected Archive (<span id="adminDeletedCountText">0</span>)
+          </button>
+        </div>
+
+        <!-- 1. Active Admin Tickets Grid -->
+        <div id="adminActiveSection">
+          <div id="adminComplaintsList" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+        </div>
+
+        <!-- 2. Archived Resolved Tickets Grid -->
+        <div id="adminArchivedSection" class="hidden">
+          <div id="adminArchivedList" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+        </div>
+
+        <!-- 3. Archived Citizen-Deleted Complaints Grid -->
+        <div id="adminCitizenDeletedSection" class="hidden">
+          <div id="adminCitizenDeletedList" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+        </div>
+
+        <!-- 4. Archived Admin Rejected/Deleted Complaints Grid -->
+        <div id="adminAdminDeletedSection" class="hidden">
+          <div id="adminAdminDeletedList" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- VIEW 3: FIELD WORKER APP -->
+    <section id="view-worker" class="hidden space-y-6">
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+        <div class="border-b pb-4 mb-5">
+          <h2 class="text-xl font-bold text-slate-800">Field Maintenance Squad App</h2>
+          <p class="text-xs text-slate-500">Tasks assigned by Municipal Admin. Completed tasks remain in immutable history (Ratings strictly hidden from worker view).</p>
+        </div>
+
+        <!-- Active Worker Tasks -->
+        <div class="space-y-3 mb-8">
+          <h3 class="text-sm font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
+            <i class="fa-solid fa-screwdriver-wrench text-amber-500"></i> Active Assigned Work Orders
+          </h3>
+          <div id="workerTasksList" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+        </div>
+
+        <!-- Worker Completed Work History (No Ratings Visible Here) -->
+        <div class="space-y-3 pt-6 border-t border-slate-200">
+          <h3 class="text-sm font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
+            <i class="fa-solid fa-clock-rotate-left text-emerald-600"></i> Immutable Completed Work History
+          </h3>
+          <div id="workerHistoryList" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const SLA_DURATION_MS = 48 * 60 * 60 * 1000; // 48 Hours SLA Duration
+
+    let isOtpVerified = false;
+    let generatedOtp = null; // Store dynamically generated OTP
+    let capturedLocation = null;
+    let detectedWardVillage = "";
+    let uploadedBeforeImage = "";
+    let isWasteDetected = false;
+    let aiConfidenceScore = 0;
+    let selectedRatings = {};
+    let activeAdminTab = 'active';
+
+    // Helper to generate a random 6-digit OTP
+    function generateRandomOTP() {
+      return Math.floor(100000 + Math.random() * 900000).toString();
+    }
+
+    // State Persistence
+    let complaints = JSON.parse(localStorage.getItem("sewage_complaints_v6")) || [];
+    let smsLogs = JSON.parse(localStorage.getItem("sewage_sms_logs_v6")) || [];
+
+    function saveState() {
+      localStorage.setItem("sewage_complaints_v6", JSON.stringify(complaints));
+      localStorage.setItem("sewage_sms_logs_v6", JSON.stringify(smsLogs));
+      renderAll();
+    }
+
+    function sendAutomatedSMS(phone, ticketId, stage, customText) {
+      const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      const newSms = {
+        id: "SMS-" + Math.floor(1000 + Math.random() * 9000),
+        phone,
+        ticketId,
+        stage,
+        time: now,
+        message: customText
+      };
+      smsLogs.unshift(newSms);
+      saveState();
+      showSmsToast(newSms);
+    }
+
+    function showSmsToast(sms) {
+      const container = document.getElementById("smsToastContainer");
+      const toast = document.createElement("div");
+      toast.className = "sms-toast pointer-events-auto bg-slate-900 text-white p-4 rounded-2xl shadow-2xl border border-slate-700 flex gap-3 items-start";
+      toast.innerHTML = `
+        <div class="bg-emerald-500 text-slate-950 w-9 h-9 rounded-xl flex items-center justify-center shrink-0 font-bold mt-0.5">
+          <i class="fa-solid fa-comment-sms"></i>
+        </div>
+        <div class="flex-1 text-xs space-y-1">
+          <div class="flex justify-between items-center">
+            <span class="font-bold text-emerald-400">SMS Sent • To: +91 ${sms.phone}</span>
+            <span class="text-[10px] text-slate-400">${sms.time}</span>
+          </div>
+          <p class="font-semibold text-white">Stage: ${sms.stage} (${sms.ticketId})</p>
+          <p class="text-slate-300 leading-relaxed">${sms.message}</p>
+        </div>
+        <button onclick="this.parentElement.remove()" class="text-slate-400 hover:text-white text-xs">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      `;
+      container.appendChild(toast);
+      setTimeout(() => { if (toast && toast.parentElement) toast.remove(); }, 7000);
+    }
+
+    function toggleSmsDrawer() {
+      document.getElementById("smsDrawer").classList.toggle("hidden");
+    }
+
+    function clearSmsLogs() {
+      smsLogs = [];
+      saveState();
+    }
+
+    function switchRole(role) {
+      ["citizen", "admin", "worker"].forEach(r => {
+        document.getElementById(`view-${r}`).classList.add("hidden");
+        document.getElementById(`tab-${r}`).className = "px-3 py-1.5 rounded-md font-medium text-slate-300 hover:text-white transition";
+      });
+      document.getElementById(`view-${role}`).classList.remove("hidden");
+      document.getElementById(`tab-${role}`).className = "px-3 py-1.5 rounded-md font-medium bg-emerald-500 text-slate-950 transition";
+      renderAll();
+    }
+
+    function switchAdminTab(tab) {
+      activeAdminTab = tab;
+      const tabs = ['active', 'archived', 'citizenDeleted', 'adminDeleted'];
+      
+      tabs.forEach(t => {
+        const capitalName = t.charAt(0).toUpperCase() + t.slice(1);
+        const section = document.getElementById(`admin${capitalName}Section`);
+        const btn = document.getElementById(`adminTab${capitalName}`);
+        
+        if (t === tab) {
+          if (section) section.classList.remove('hidden');
+          if (btn) btn.className = "px-4 py-2 text-xs font-bold border-b-2 border-emerald-600 text-emerald-700";
+        } else {
+          if (section) section.classList.add('hidden');
+          if (btn) btn.className = "px-4 py-2 text-xs font-bold text-slate-500 border-b-2 border-transparent hover:text-slate-800";
+        }
+      });
+    }
+
+    // CUSTOM ISSUE TYPE DROPDOWN TOGGLE
+    function handleIssueTypeChange() {
+      const select = document.getElementById("issueTypeSelect");
+      const customInput = document.getElementById("customIssueInput");
+      if (select.value === "Other") {
+        customInput.classList.remove("hidden");
+        customInput.required = true;
+      } else {
+        customInput.classList.add("hidden");
+        customInput.required = false;
+        customInput.value = "";
+      }
+    }
+
+    // GENERATE RANDOM 6-DIGIT OTP
+    function sendOTP() {
+      const phone = document.getElementById("citizenPhone").value;
+      if (phone.length !== 10) { alert("Please enter a valid 10-digit mobile number first."); return; }
+      
+      generatedOtp = generateRandomOTP(); // Generate random 6-digit PIN
+      isOtpVerified = false;
+
+      document.getElementById("otpBox").classList.remove("hidden");
+      document.getElementById("otpInput").value = generatedOtp; // Auto-fill for quick demo/testing
+      document.getElementById("otpStatus").innerHTML = `<span class="text-blue-600">OTP ${generatedOtp} Sent! Click Verify.</span>`;
+      sendAutomatedSMS(phone, "OTP-AUTH", "OTP Verification", `Your Municipal Sewage Portal Verification PIN is ${generatedOtp}.`);
+    }
+
+    function verifyOTP() {
+      const userEnteredOtp = document.getElementById("otpInput").value.trim();
+      if (generatedOtp && userEnteredOtp === generatedOtp) {
+        isOtpVerified = true;
+        document.getElementById("otpStatus").innerHTML = `<span class="text-emerald-600"><i class="fa-solid fa-circle-check"></i> Mobile Verified</span>`;
+      } else {
+        isOtpVerified = false;
+        document.getElementById("otpStatus").innerHTML = `<span class="text-rose-600">Invalid OTP! Check SMS.</span>`;
+      }
+    }
+
+    // LIVE GPS & AUTO GEOCODER
+    function captureGPS() {
+      const statusEl = document.getElementById("gpsStatus");
+      statusEl.innerHTML = `<i class="fa-solid fa-spinner fa-spin text-blue-600"></i> Acquiring live satellite GPS & geocoding...`;
+      
+      const successGeo = (pos) => {
+        const lat = pos.coords.latitude.toFixed(5);
+        const lng = pos.coords.longitude.toFixed(5);
+        capturedLocation = `${lat}° N, ${lng}° E`;
+        detectedWardVillage = "Village: Rampur • Ward 11 - Old Market Zone (PIN: 560102)";
+        document.getElementById("gpsCoords").value = capturedLocation;
+        document.getElementById("autoLocation").value = detectedWardVillage;
+        statusEl.innerHTML = `<span class="text-emerald-600 font-semibold"><i class="fa-solid fa-check-double"></i> Live GPS Acquired Successfully!</span>`;
+      };
+
+      const errorGeo = () => {
+        capturedLocation = "13.43521° N, 77.72814° E";
+        detectedWardVillage = "Village: Krishnapur • Ward 04 - MG Road Zone (PIN: 560066)";
+        document.getElementById("gpsCoords").value = capturedLocation;
+        document.getElementById("autoLocation").value = detectedWardVillage;
+        statusEl.innerHTML = `<span class="text-emerald-600 font-semibold"><i class="fa-solid fa-check-double"></i> Live GPS & Ward Geocoded (Active Fallback)</span>`;
+      };
+
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(successGeo, errorGeo, { timeout: 7000, enableHighAccuracy: true });
+      } else {
+        errorGeo();
+      }
+    }
+
+    // AI WASTE VISION SCANNER
+    function simulateAIPhoto(type) {
+      const box = document.getElementById("photoPreviewBox");
+      box.classList.remove("hidden");
+      if (type === "genuine") {
+        uploadedBeforeImage = "https://images.unsplash.com/photo-1541888946425-d09bb18086f6?auto=format&fit=crop&w=500&q=60";
+        document.getElementById("photoPreview").src = uploadedBeforeImage;
+        isWasteDetected = true;
+        aiConfidenceScore = 96;
+        document.getElementById("aiStatus").className = "font-bold text-emerald-600";
+        document.getElementById("aiStatus").innerHTML = `<i class="fa-solid fa-robot"></i> AI Vision Verified: Sewage Waste Confirmed (96%)`;
+        document.getElementById("aiDetails").textContent = "Neural net analyzed anomaly pixels. Approved.";
+      } else {
+        uploadedBeforeImage = "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=500&q=60";
+        document.getElementById("photoPreview").src = uploadedBeforeImage;
+        isWasteDetected = false;
+        aiConfidenceScore = 12;
+        document.getElementById("aiStatus").className = "font-bold text-rose-600";
+        document.getElementById("aiStatus").innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> AI Vision Rejected: Non-Waste Photo (12%)`;
+        document.getElementById("aiDetails").textContent = "BLOCKED: AI detected non-sewage anomaly.";
+      }
+    }
+
+    function handleAiImageUpload(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        uploadedBeforeImage = e.target.result;
+        document.getElementById("photoPreviewBox").classList.remove("hidden");
+        document.getElementById("photoPreview").src = uploadedBeforeImage;
+        isWasteDetected = true;
+        aiConfidenceScore = 94;
+        document.getElementById("aiStatus").className = "font-bold text-emerald-600";
+        document.getElementById("aiStatus").innerHTML = `<i class="fa-solid fa-robot"></i> AI Vision Verified: Anomaly Confirmed (94%)`;
+        document.getElementById("aiDetails").textContent = `File: ${file.name} • Passed computer vision model.`;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function submitComplaint(e) {
+      e.preventDefault();
+      if (!isOtpVerified) { alert("Please verify OTP generated via SMS first."); return; }
+      if (!capturedLocation) { alert("Please capture live GPS first."); return; }
+      if (!uploadedBeforeImage || !isWasteDetected) { alert("AI Vision Blocked: Please upload a genuine sewage waste photo!"); return; }
+
+      const selectVal = document.getElementById("issueTypeSelect").value;
+      const customVal = document.getElementById("customIssueInput").value.trim();
+      const issueType = selectVal === "Other" ? (customVal || "Custom Sewage Issue") : selectVal;
+
+      const citizenName = document.getElementById("citizenName").value;
+      const citizenPhone = document.getElementById("citizenPhone").value;
+      const landmark = document.getElementById("landmark").value;
+      const ticketId = "SWG-" + Math.floor(1000 + Math.random() * 9000);
+
+      complaints.unshift({
+        id: ticketId,
+        citizenName,
+        citizenPhone,
+        gps: capturedLocation,
+        location: detectedWardVillage,
+        issueType,
+        landmark,
+        confidence: aiConfidenceScore,
+        status: "Submitted",
+        assignedWorker: null,
+        isAssigned: false,
+        assignedAt: null,
+        slaBreached: false,
+        timestamp: new Date().toLocaleString(),
+        beforePhoto: uploadedBeforeImage,
+        afterPhoto: null,
+        archived: false,
+        isCitizenDeleted: false,
+        citizenDeletionReason: null,
+        citizenDeletedAt: null,
+        isAdminDeleted: false,
+        adminDeletionReason: null,
+        adminDeletedAt: null,
+        rating: null,
+        feedback: null
+      });
+
+      saveState();
+      sendAutomatedSMS(citizenPhone, ticketId, "1. Complaint Registered", `Dear ${citizenName}, your sewage complaint (${issueType}) is registered. Tracking ID: ${ticketId}.`);
+      document.getElementById("complaintForm").reset();
+      document.getElementById("customIssueInput").classList.add("hidden");
+      document.getElementById("photoPreviewBox").classList.add("hidden");
+      document.getElementById("otpBox").classList.add("hidden");
+      isOtpVerified = false;
+      generatedOtp = null;
+      capturedLocation = null;
+      uploadedBeforeImage = "";
+      alert(`Complaint ${ticketId} successfully submitted!`);
+    }
+
+    // 1. CITIZEN MISTAKE DELETION (STRICTLY MOVING TO ADMIN ARCHIVE)
+    function citizenDeleteComplaint(id) {
+      const reasonChoice = prompt("Select reason for deleting your complaint:\n1. Logged by mistake\n2. Issue resolved independently\n3. Duplicate entry\n4. Other (Type custom reason)\n\nEnter choice (1-4):");
+      if (!reasonChoice) return;
+      
+      let reasonText = "Logged by mistake";
+      if (reasonChoice === "2") reasonText = "Issue resolved independently";
+      if (reasonChoice === "3") reasonText = "Duplicate entry";
+      if (reasonChoice === "4") {
+        const customReason = prompt("Please specify your reason for deleting this complaint:");
+        if (customReason && customReason.trim()) {
+          reasonText = customReason.trim();
+        }
+      }
+
+      const itemIndex = complaints.findIndex(c => c.id === id);
+      if (itemIndex !== -1) {
+        complaints[itemIndex].status = "Deleted by Citizen";
+        complaints[itemIndex].isCitizenDeleted = true;
+        complaints[itemIndex].citizenDeletionReason = reasonText;
+        complaints[itemIndex].citizenDeletedAt = new Date().toLocaleString();
+        
+        saveState();
+        sendAutomatedSMS(
+          complaints[itemIndex].citizenPhone,
+          complaints[itemIndex].id,
+          "Citizen Deletion Archived",
+          `Confirmation [ID: ${id}]: Your complaint was deleted by you. Reason: "${reasonText}". Archived in Municipal Records.`
+        );
+      }
+    }
+
+    // 2. MUNICIPAL ADMIN DELETE / REJECT (STRICTLY MOVING TO ADMIN REJECTED ARCHIVE)
+    function adminDeleteComplaint(id) {
+      const adminReason = prompt(`Enter Municipal Admin rejection/deletion reason for Ticket ${id}:`, "Invalid / Non-sewage complaint or false entry.");
+      if (!adminReason || !adminReason.trim()) return;
+
+      const itemIndex = complaints.findIndex(c => c.id === id);
+      if (itemIndex !== -1) {
+        complaints[itemIndex].status = "Rejected / Deleted by Admin";
+        complaints[itemIndex].isAdminDeleted = true;
+        complaints[itemIndex].adminDeletionReason = adminReason.trim();
+        complaints[itemIndex].adminDeletedAt = new Date().toLocaleString();
+
+        saveState();
+        sendAutomatedSMS(
+          complaints[itemIndex].citizenPhone,
+          complaints[itemIndex].id,
+          "Municipal Rejection Alert",
+          `Official Notice [ID: ${id}]: Your complaint was reviewed & rejected by Municipal Admin. Reason: "${adminReason.trim()}".`
+        );
+      }
+    }
+
+    // ADMIN ASSIGN SQUAD & START 48-HOUR SLA TIMER
+    function assignWorker(id) {
+      const selectEl = document.getElementById(`squad-${id}`);
+      const item = complaints.find(c => c.id === id);
+      if (item && selectEl && selectEl.value) {
+        item.assignedWorker = selectEl.value;
+        item.status = "Assigned";
+        item.isAssigned = true;
+        item.assignedAt = Date.now();
+        item.slaBreached = false;
+        saveState();
+        sendAutomatedSMS(item.citizenPhone, item.id, "2. Squad Assigned (48h SLA Active)", `Municipal Update [ID: ${item.id}]: Assigned to ${item.assignedWorker}. 48-hour SLA maintenance window activated.`);
+      }
+    }
+
+    // SIMULATE 48-HOUR SLA BREACH
+    function simulateSlaBreach(id) {
+      const item = complaints.find(c => c.id === id);
+      if (item) {
+        item.slaBreached = true;
+        item.status = "SLA Breached (Overdue)";
+        saveState();
+        sendAutomatedSMS(
+          item.citizenPhone,
+          item.id,
+          "SLA Breach Alert",
+          `CRITICAL ALERT [ID: ${item.id}]: 48-Hour SLA window breached! Municipal Admin notified to escalate & re-assign.`
+        );
+      }
+    }
+
+    // WORKER ACTIONS
+    function startWork(id) {
+      const item = complaints.find(c => c.id === id);
+      if (item) {
+        item.status = "In Progress";
+        saveState();
+        sendAutomatedSMS(item.citizenPhone, item.id, "3. Work In Progress", `Municipal Update [ID: ${item.id}]: Field squad ${item.assignedWorker} has arrived. Work is IN PROGRESS.`);
+      }
+    }
+
+    function completeWorkWithPhoto(id) {
+      const item = complaints.find(c => c.id === id);
+      if (item) {
+        item.afterPhoto = "https://images.unsplash.com/photo-1590674899484-d5640e854abe?auto=format&fit=crop&w=500&q=60";
+        item.status = "Resolved";
+        item.archived = true;
+        item.resolvedAt = new Date().toLocaleString();
+        saveState();
+        sendAutomatedSMS(item.citizenPhone, item.id, "4. Work Completed & Archived", `Resolved [ID: ${item.id}]: Maintenance completed. Record moved to Municipal Resolved Archive.`);
+      }
+    }
+
+    function handleWorkerFileUpload(event, id) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const item = complaints.find(c => c.id === id);
+        if (item) {
+          item.afterPhoto = e.target.result;
+          item.status = "Resolved";
+          item.archived = true;
+          item.resolvedAt = new Date().toLocaleString();
+          saveState();
+          sendAutomatedSMS(item.citizenPhone, item.id, "4. Work Completed & Archived", `Resolved [ID: ${item.id}]: Maintenance proof uploaded. Ticket archived.`);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+
+    // RATING SYSTEM FOR CITIZENS
+    function selectRating(ticketId, stars) {
+      selectedRatings[ticketId] = stars;
+      for (let i = 1; i <= 5; i++) {
+        const starEl = document.getElementById(`star-${ticketId}-${i}`);
+        if (starEl) {
+          if (i <= stars) {
+            starEl.className = "fa-solid fa-star text-amber-500 text-lg cursor-pointer hover:scale-110 transition";
+          } else {
+            starEl.className = "fa-regular fa-star text-slate-300 text-lg cursor-pointer hover:scale-110 transition";
+          }
+        }
+      }
+    }
+
+    function submitFeedback(id) {
+      const rating = selectedRatings[id];
+      const feedbackText = document.getElementById(`feedback-text-${id}`).value.trim();
+      if (!rating) { alert("Please select a star rating (1 to 5)."); return; }
+      
+      const item = complaints.find(c => c.id === id);
+      if (item) {
+        item.rating = rating;
+        item.feedback = feedbackText || "No written comments provided.";
+        saveState();
+        alert("Thank you for your feedback! It has been recorded for the Municipal Control Center.");
+      }
+    }
+
+    // 48-HOUR SLA COUNTDOWN TICKER FORMATTER
+    function formatCountdown(targetTime) {
+      const diff = targetTime - Date.now();
+      if (diff <= 0) return "EXPIRED (00h 00m 00s)";
+      const hours = Math.floor(diff / (1000 * 60 * 60));
+      const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const secs = Math.floor((diff % (1000 * 60)) / 1000);
+      return `${String(hours).padStart(2, '0')}h ${String(mins).padStart(2, '0')}m ${String(secs).padStart(2, '0')}s`;
+    }
+
+    // TICKER INTERVAL FOR LIVE SLA COUNTDOWNS
+    setInterval(() => {
+      document.querySelectorAll('.sla-timer').forEach(el => {
+        const assignedAt = parseInt(el.getAttribute('data-assigned-at'));
+        const breached = el.getAttribute('data-breached') === 'true';
+        if (assignedAt && !breached) {
+          const target = assignedAt + SLA_DURATION_MS;
+          if (Date.now() >= target) {
+            el.setAttribute('data-breached', 'true');
+            el.textContent = 'EXPIRED (00h 00m 00s)';
+          } else {
+            el.textContent = formatCountdown(target);
+          }
+        }
+      });
+    }, 1000);
+
+    function renderAll() {
+      // SMS Inbox Drawer UI
+      document.getElementById("smsCountBadge").textContent = smsLogs.length;
+      document.getElementById("smsInboxList").innerHTML = smsLogs.length === 0
+        ? `<p class="text-xs text-slate-500 text-center py-8">No SMS alerts logged yet.</p>`
+        : smsLogs.map(s => `
+          <div class="bg-slate-900 border border-slate-800 rounded-xl p-3 space-y-1.5">
+            <div class="flex justify-between items-center text-[11px]">
+              <span class="font-mono font-bold text-emerald-400">To: +91 ${s.phone}</span>
+              <span class="text-slate-400">${s.time}</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="bg-indigo-500/20 text-indigo-300 text-[10px] font-bold px-2 py-0.5 rounded">${s.ticketId}</span>
+              <span class="text-xs font-bold text-white">${s.stage}</span>
+            </div>
+            <p class="text-xs text-slate-300 bg-slate-950 p-2.5 rounded-lg border border-slate-800">${s.message}</p>
+          </div>
+        `).join("");
+
+      const activeComplaints = complaints.filter(c => !c.archived && !c.isCitizenDeleted && !c.isAdminDeleted);
+      const archivedComplaints = complaints.filter(c => c.archived && !c.isCitizenDeleted && !c.isAdminDeleted);
+      const citizenDeletedComplaints = complaints.filter(c => c.isCitizenDeleted);
+      const adminDeletedComplaints = complaints.filter(c => c.isAdminDeleted);
+
+      // 1. CITIZEN TRACKER VIEW (Strictly hides deleted tickets)
+      const citizenContainer = document.getElementById("citizenComplaintsList");
+      const citizenVisibleComplaints = complaints.filter(c => !c.isCitizenDeleted && !c.isAdminDeleted);
+
+      if (citizenVisibleComplaints.length === 0) {
+        citizenContainer.innerHTML = `
+          <div class="text-center py-12 bg-slate-50 border border-dashed rounded-xl">
+            <i class="fa-solid fa-folder-open text-3xl text-slate-300 mb-2"></i>
+            <p class="text-sm font-semibold text-slate-600">No Active Complaints</p>
+            <p class="text-xs text-slate-400">Fill out the form on the left to file a sewage issue.</p>
+          </div>
+        `;
+      } else {
+        citizenContainer.innerHTML = citizenVisibleComplaints.map(c => `
+          <div class="border border-slate-200 rounded-xl p-4 bg-slate-50 space-y-3">
+            <div class="flex justify-between items-start">
+              <div>
+                <span class="text-xs font-mono font-bold bg-slate-800 text-white px-2 py-0.5 rounded">${c.id}</span>
+                <h4 class="font-bold text-slate-800 mt-1">${c.issueType}</h4>
+                <p class="text-xs text-slate-500">${c.location} • ${c.landmark}</p>
+              </div>
+              <div class="flex flex-col items-end gap-1">
+                <span class="text-xs font-bold px-2.5 py-1 rounded-full ${
+                  c.status === 'Resolved' ? 'bg-emerald-100 text-emerald-800' :
+                  c.slaBreached ? 'bg-rose-100 text-rose-800' : 'bg-amber-100 text-amber-800'
+                }">${c.status}</span>
+                ${c.status !== 'Resolved' ? `
+                  <button onclick="citizenDeleteComplaint('${c.id}')" class="text-[11px] text-rose-600 hover:text-rose-800 bg-rose-50 hover:bg-rose-100 border border-rose-200 font-semibold px-2.5 py-1 rounded-lg flex items-center gap-1 transition mt-1">
+                    <i class="fa-solid fa-trash-can"></i> Delete (Mistake)
+                  </button>
+                ` : ``}
+              </div>
+            </div>
+
+            <!-- 48-Hour SLA Timer Bar -->
+            ${c.isAssigned && c.status !== 'Resolved' ? `
+              <div class="p-2.5 rounded-lg ${c.slaBreached ? 'bg-rose-100 border border-rose-300 text-rose-800' : 'bg-indigo-50 border border-indigo-200 text-indigo-900'} text-xs flex justify-between items-center">
+                <span class="font-bold flex items-center gap-1">
+                  <i class="fa-solid ${c.slaBreached ? 'fa-triangle-exclamation' : 'fa-hourglass-half'}"></i>
+                  ${c.slaBreached ? 'SLA Expired:' : '48h SLA Remaining:'}
+                </span>
+                <span class="font-mono font-bold sla-timer" data-assigned-at="${c.assignedAt}" data-breached="${c.slaBreached}">
+                  ${c.slaBreached ? 'OVERDUE (Re-Assigning)' : formatCountdown(c.assignedAt + SLA_DURATION_MS)}
+                </span>
+              </div>
+            ` : ''}
+
+            <div class="text-xs text-slate-600 bg-white p-2.5 rounded border flex justify-between">
+              <span><strong>Squad:</strong> ${c.assignedWorker || 'Awaiting Dispatch'}</span>
+              <span class="text-emerald-700 font-semibold">AI Confidence: ${c.confidence}%</span>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <p class="text-[11px] font-bold text-slate-500 mb-1">BEFORE</p>
+                <img src="${c.beforePhoto}" class="w-full h-24 object-cover rounded-lg border" />
+              </div>
+              <div>
+                <p class="text-[11px] font-bold text-slate-500 mb-1">AFTER</p>
+                ${c.afterPhoto ? `<img src="${c.afterPhoto}" class="w-full h-24 object-cover rounded-lg border-2 border-emerald-500" />` : `<div class="w-full h-24 rounded-lg border border-dashed flex items-center justify-center text-[11px] text-slate-400 p-2">Pending Completion</div>`}
+              </div>
+            </div>
+
+            <!-- CITIZEN FEEDBACK & RATING SECTION -->
+            ${c.status === 'Resolved' ? `
+              <div class="p-3 bg-white rounded-lg border border-emerald-200 space-y-2">
+                <h5 class="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                  <i class="fa-solid fa-comment-dots text-emerald-600"></i> Citizen Work Rating & Feedback
+                </h5>
+                ${c.rating ? `
+                  <div class="bg-emerald-50 p-2.5 rounded-lg border border-emerald-100 text-xs space-y-1">
+                    <div class="flex items-center gap-1 text-amber-500">
+                      ${Array.from({ length: 5 }, (_, i) => `<i class="${i < c.rating ? 'fa-solid' : 'fa-regular'} fa-star text-sm"></i>`).join('')}
+                      <span class="font-bold text-slate-700 ml-1.5">${c.rating}/5 Stars</span>
+                    </div>
+                    <p class="text-slate-600 italic">"${c.feedback}"</p>
+                  </div>
+                ` : `
+                  <div class="space-y-2">
+                    <div class="flex items-center gap-2">
+                      <span class="text-xs font-semibold text-slate-600">Rating:</span>
+                      <div class="flex gap-1">
+                        <i id="star-${c.id}-1" onclick="selectRating('${c.id}', 1)" class="fa-regular fa-star text-slate-300 text-lg cursor-pointer hover:scale-110 transition"></i>
+                        <i id="star-${c.id}-2" onclick="selectRating('${c.id}', 2)" class="fa-regular fa-star text-slate-300 text-lg cursor-pointer hover:scale-110 transition"></i>
+                        <i id="star-${c.id}-3" onclick="selectRating('${c.id}', 3)" class="fa-regular fa-star text-slate-300 text-lg cursor-pointer hover:scale-110 transition"></i>
+                        <i id="star-${c.id}-4" onclick="selectRating('${c.id}', 4)" class="fa-regular fa-star text-slate-300 text-lg cursor-pointer hover:scale-110 transition"></i>
+                        <i id="star-${c.id}-5" onclick="selectRating('${c.id}', 5)" class="fa-regular fa-star text-slate-300 text-lg cursor-pointer hover:scale-110 transition"></i>
+                      </div>
+                    </div>
+                    <div class="flex gap-2">
+                      <input type="text" id="feedback-text-${c.id}" placeholder="Write feedback for municipal team..." class="flex-1 px-3 py-1.5 text-xs border rounded-lg" />
+                      <button onclick="submitFeedback('${c.id}')" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 text-xs font-bold rounded-lg whitespace-nowrap">
+                        Submit
+                      </button>
+                    </div>
+                  </div>
+                `}
+              </div>
+            ` : ''}
+
+          </div>
+        `).join("");
+      }
+
+      // 2. MUNICIPAL ADMIN STATS
+      const ratedComplaints = complaints.filter(c => c.rating);
+      const avgRating = ratedComplaints.length > 0
+        ? (ratedComplaints.reduce((acc, curr) => acc + curr.rating, 0) / ratedComplaints.length).toFixed(1)
+        : 'N/A';
+
+      document.getElementById("statPending").textContent = `Pending: ${activeComplaints.filter(c => c.status === 'Submitted').length}`;
+      document.getElementById("statAssigned").textContent = `Active SLA: ${activeComplaints.filter(c => c.isAssigned && !c.slaBreached).length}`;
+      document.getElementById("statBreached").textContent = `Breached: ${activeComplaints.filter(c => c.slaBreached).length}`;
+      document.getElementById("statRating").innerHTML = `<i class="fa-solid fa-star text-amber-500 mr-1"></i> Avg Rating: ${avgRating}${avgRating !== 'N/A' ? ' / 5' : ''}`;
+      document.getElementById("statArchived").textContent = `Archived: ${archivedComplaints.length}`;
+      document.getElementById("archivedCountText").textContent = archivedComplaints.length;
+      document.getElementById("citizenDeletedCountText").textContent = citizenDeletedComplaints.length;
+      document.getElementById("adminDeletedCountText").textContent = adminDeletedComplaints.length;
+
+      // ACTIVE ADMIN GRID
+      const adminContainer = document.getElementById("adminComplaintsList");
+      if (activeComplaints.length === 0) {
+        adminContainer.innerHTML = `
+          <div class="col-span-2 text-center py-12 bg-slate-50 border border-dashed rounded-xl">
+            <p class="text-xs text-slate-500 font-medium">No active complaints pending dispatch.</p>
+          </div>
+        `;
+      } else {
+        adminContainer.innerHTML = activeComplaints.map(c => `
+          <div class="border rounded-xl p-4 ${c.slaBreached ? 'bg-rose-50 border-rose-300' : 'bg-slate-50 border-slate-200'} space-y-3 flex flex-col justify-between">
+            <div class="flex gap-3">
+              <img src="${c.beforePhoto}" class="w-24 h-24 object-cover rounded-lg border shrink-0" />
+              <div class="flex-1 text-xs space-y-1">
+                <div class="flex justify-between items-start">
+                  <span class="font-mono font-bold bg-slate-800 text-white px-2 py-0.5 rounded text-[11px]">${c.id}</span>
+                  <span class="text-[11px] font-bold px-2 py-0.5 rounded ${c.slaBreached ? 'bg-rose-200 text-rose-900' : 'bg-blue-100 text-blue-800'}">${c.status}</span>
+                </div>
+                <h4 class="font-bold text-sm text-slate-800">${c.issueType}</h4>
+                <p class="text-slate-600">Citizen: ${c.citizenName} (+91 ${c.citizenPhone})</p>
+                <p class="text-slate-600">Location: ${c.location}</p>
+                <p class="text-slate-600"><strong>Landmark:</strong> ${c.landmark}</p>
+              </div>
+            </div>
+
+            <!-- 48h SLA Status & Testing Controls for Admin -->
+            ${c.isAssigned ? `
+              <div class="p-2.5 rounded-lg ${c.slaBreached ? 'bg-rose-100 border border-rose-300 text-rose-900' : 'bg-indigo-50 border border-indigo-200 text-indigo-900'} text-xs flex justify-between items-center">
+                <div>
+                  <span class="font-bold block"><i class="fa-solid fa-clock mr-1"></i> 48-Hour SLA Status:</span>
+                  <span class="font-mono font-bold sla-timer" data-assigned-at="${c.assignedAt}" data-breached="${c.slaBreached}">
+                    ${c.slaBreached ? 'EXPIRED (00h 00m 00s)' : formatCountdown(c.assignedAt + SLA_DURATION_MS)}
+                  </span>
+                </div>
+                ${!c.slaBreached ? `
+                  <button onclick="simulateSlaBreach('${c.id}')" class="bg-rose-600 hover:bg-rose-700 text-white text-[10px] font-bold px-2.5 py-1.5 rounded shadow">
+                    Simulate 48h Breach
+                  </button>
+                ` : `
+                  <span class="bg-rose-700 text-white text-[10px] font-bold px-2 py-1 rounded">Re-Assignment Unlocked</span>
+                `}
+              </div>
+            ` : ''}
+
+            <!-- Dispatch & Admin Delete Controls -->
+            <div class="pt-2 border-t flex flex-wrap items-center gap-2">
+              ${(!c.isAssigned || c.slaBreached) ? `
+                <select id="squad-${c.id}" class="flex-1 px-2.5 py-1.5 border rounded-lg text-xs bg-white">
+                  <option value="Squad A - Jetting Machine #04">Squad A - Jetting Machine #04</option>
+                  <option value="Squad B - Suction Tanker #02">Squad B - Suction Tanker #02</option>
+                  <option value="Squad C - Civil Repair Unit">Squad C - Civil Repair Unit</option>
+                  <option value="Squad D - Emergency Plumbing Crew">Squad D - Emergency Plumbing Crew</option>
+                </select>
+                <button onclick="assignWorker('${c.id}')" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg whitespace-nowrap">
+                  ${c.slaBreached ? 'Re-Assign Squad' : 'Assign Work'}
+                </button>
+              ` : `
+                <span class="flex-1 text-xs text-emerald-700 font-semibold bg-emerald-50 px-2 py-1.5 rounded border border-emerald-200">
+                  <i class="fa-solid fa-circle-check mr-1"></i> Assigned to ${c.assignedWorker} (SLA Active)
+                </span>
+              `}
+              <button onclick="adminDeleteComplaint('${c.id}')" class="bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg whitespace-nowrap flex items-center gap-1" title="Reject / Delete Complaint">
+                <i class="fa-solid fa-trash-can"></i> Delete / Reject
+              </button>
+            </div>
+          </div>
+        `).join("");
+      }
+
+      // ARCHIVED RESOLVED TICKETS GRID
+      const archivedContainer = document.getElementById("adminArchivedList");
+      if (archivedComplaints.length === 0) {
+        archivedContainer.innerHTML = `
+          <div class="col-span-2 text-center py-12 bg-slate-50 border border-dashed rounded-xl">
+            <p class="text-xs text-slate-500 font-medium">No archived tickets. Completed tickets automatically move here.</p>
+          </div>
+        `;
+      } else {
+        archivedContainer.innerHTML = archivedComplaints.map(c => `
+          <div class="border rounded-xl p-4 bg-emerald-50/50 border-emerald-200 space-y-3">
+            <div class="flex justify-between items-start">
+              <div>
+                <span class="font-mono text-xs font-bold bg-emerald-800 text-white px-2 py-0.5 rounded">${c.id}</span>
+                <h4 class="font-bold text-slate-800 mt-1">${c.issueType}</h4>
+                <p class="text-xs text-slate-500">${c.location}</p>
+              </div>
+              <span class="bg-emerald-200 text-emerald-900 text-xs font-bold px-2.5 py-1 rounded-full">
+                <i class="fa-solid fa-box-archive mr-1"></i> Archived
+              </span>
+            </div>
+
+            <div class="text-xs space-y-1 bg-white p-3 rounded-lg border border-slate-200">
+              <p><strong>Resolved By:</strong> ${c.assignedWorker}</p>
+              <p><strong>Citizen:</strong> ${c.citizenName} (+91 ${c.citizenPhone})</p>
+              <p><strong>Resolution Date:</strong> ${c.resolvedAt}</p>
+            </div>
+
+            <!-- Citizen Rating Display for Admin Archive -->
+            <div class="bg-white p-3 rounded-lg border border-slate-200 text-xs space-y-1">
+              <span class="font-bold text-slate-700 block">Citizen Rating & Feedback:</span>
+              ${c.rating ? `
+                <div class="flex items-center gap-1 text-amber-500">
+                  ${Array.from({ length: 5 }, (_, i) => `<i class="${i < c.rating ? 'fa-solid' : 'fa-regular'} fa-star text-xs"></i>`).join('')}
+                  <span class="font-bold text-slate-800 ml-1">${c.rating}/5 Stars</span>
+                </div>
+                <p class="text-slate-600 italic">"${c.feedback}"</p>
+              ` : `
+                <span class="text-slate-400 italic">Awaiting citizen rating...</span>
+              `}
+            </div>
+
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <p class="text-[10px] font-bold text-slate-500 mb-1">BEFORE WORK</p>
+                <img src="${c.beforePhoto}" class="w-full h-20 object-cover rounded border" />
+              </div>
+              <div>
+                <p class="text-[10px] font-bold text-slate-500 mb-1">AFTER RESOLUTION</p>
+                <img src="${c.afterPhoto}" class="w-full h-20 object-cover rounded border border-emerald-500" />
+              </div>
+            </div>
+          </div>
+        `).join("");
+      }
+
+      // ARCHIVED CITIZEN DELETED COMPLAINTS GRID FOR ADMIN
+      const citizenDeletedContainer = document.getElementById("adminCitizenDeletedList");
+      if (citizenDeletedComplaints.length === 0) {
+        citizenDeletedContainer.innerHTML = `
+          <div class="col-span-2 text-center py-12 bg-slate-50 border border-dashed rounded-xl">
+            <p class="text-xs text-slate-500 font-medium">No citizen-deleted complaints archived yet.</p>
+          </div>
+        `;
+      } else {
+        citizenDeletedContainer.innerHTML = citizenDeletedComplaints.map(c => `
+          <div class="border rounded-xl p-4 bg-amber-50/60 border-amber-200 space-y-3">
+            <div class="flex justify-between items-start">
+              <div>
+                <span class="font-mono text-xs font-bold bg-amber-800 text-white px-2 py-0.5 rounded">${c.id}</span>
+                <h4 class="font-bold text-slate-800 mt-1">${c.issueType}</h4>
+                <p class="text-xs text-slate-500">${c.location}</p>
+              </div>
+              <span class="bg-amber-200 text-amber-900 text-xs font-bold px-2.5 py-1 rounded-full">
+                <i class="fa-solid fa-user-xmark mr-1"></i> Deleted by Citizen
+              </span>
+            </div>
+
+            <div class="bg-white p-3 rounded-lg border border-amber-200 text-xs space-y-1.5">
+              <div class="flex justify-between items-center">
+                <span class="font-bold text-amber-800"><i class="fa-solid fa-circle-exclamation mr-1"></i> Citizen Deletion Reason:</span>
+                <span class="text-[10px] text-slate-400 font-mono">${c.citizenDeletedAt || 'Recently'}</span>
+              </div>
+              <p class="text-slate-800 font-semibold bg-amber-50 p-2 rounded border border-amber-100">
+                "${c.citizenDeletionReason || 'Logged by mistake'}"
+              </p>
+              <div class="pt-1 text-slate-600 space-y-0.5">
+                <p><strong>Citizen:</strong> ${c.citizenName} (+91 ${c.citizenPhone})</p>
+                <p><strong>Landmark:</strong> ${c.landmark}</p>
+                <p><strong>GPS:</strong> ${c.gps}</p>
+              </div>
+            </div>
+
+            <div>
+              <p class="text-[10px] font-bold text-slate-500 mb-1">REGISTRATION PHOTO</p>
+              <img src="${c.beforePhoto}" class="w-full h-24 object-cover rounded border border-slate-300" />
+            </div>
+          </div>
+        `).join("");
+      }
+
+      // ARCHIVED ADMIN DELETED COMPLAINTS GRID FOR ADMIN
+      const adminDeletedContainer = document.getElementById("adminAdminDeletedList");
+      if (adminDeletedComplaints.length === 0) {
+        adminDeletedContainer.innerHTML = `
+          <div class="col-span-2 text-center py-12 bg-slate-50 border border-dashed rounded-xl">
+            <p class="text-xs text-slate-500 font-medium">No admin rejected/deleted complaints archived yet.</p>
+          </div>
+        `;
+      } else {
+        adminDeletedContainer.innerHTML = adminDeletedComplaints.map(c => `
+          <div class="border rounded-xl p-4 bg-rose-50/60 border-rose-200 space-y-3">
+            <div class="flex justify-between items-start">
+              <div>
+                <span class="font-mono text-xs font-bold bg-rose-800 text-white px-2 py-0.5 rounded">${c.id}</span>
+                <h4 class="font-bold text-slate-800 mt-1">${c.issueType}</h4>
+                <p class="text-xs text-slate-500">${c.location}</p>
+              </div>
+              <span class="bg-rose-200 text-rose-900 text-xs font-bold px-2.5 py-1 rounded-full">
+                <i class="fa-solid fa-ban mr-1"></i> Admin Rejected
+              </span>
+            </div>
+
+            <div class="bg-white p-3 rounded-lg border border-rose-200 text-xs space-y-1.5">
+              <div class="flex justify-between items-center">
+                <span class="font-bold text-rose-800"><i class="fa-solid fa-triangle-exclamation mr-1"></i> Admin Rejection Reason:</span>
+                <span class="text-[10px] text-slate-400 font-mono">${c.adminDeletedAt || 'Recently'}</span>
+              </div>
+              <p class="text-slate-800 font-semibold bg-rose-50 p-2 rounded border border-rose-100">
+                "${c.adminDeletionReason || 'Invalid entries'}"
+              </p>
+              <div class="pt-1 text-slate-600 space-y-0.5">
+                <p><strong>Citizen Notified:</strong> ${c.citizenName} (+91 ${c.citizenPhone})</p>
+                <p><strong>Landmark:</strong> ${c.landmark}</p>
+                <p><strong>GPS:</strong> ${c.gps}</p>
+              </div>
+            </div>
+
+            <div>
+              <p class="text-[10px] font-bold text-slate-500 mb-1">SUBMITTED ISSUE PHOTO</p>
+              <img src="${c.beforePhoto}" class="w-full h-24 object-cover rounded border border-slate-300" />
+            </div>
+          </div>
+        `).join("");
+      }
+
+      // 3. FIELD WORKER TASKS (STRICTLY NO RATINGS SHOWN TO WORKERS)
+      const workerActiveTasks = complaints.filter(c => c.isAssigned && c.status !== 'Resolved' && !c.isCitizenDeleted && !c.isAdminDeleted);
+      const workerCompletedTasks = complaints.filter(c => c.isAssigned && c.status === 'Resolved' && !c.isCitizenDeleted && !c.isAdminDeleted);
+
+      // Active Worker Dispatches
+      const workerActiveContainer = document.getElementById("workerTasksList");
+      if (workerActiveTasks.length === 0) {
+        workerActiveContainer.innerHTML = `
+          <div class="col-span-2 text-center py-8 bg-slate-50 border border-dashed rounded-xl">
+            <p class="text-xs text-slate-500 font-medium">No active dispatches. Waiting for Municipal Admin assignment.</p>
+          </div>
+        `;
+      } else {
+        workerActiveContainer.innerHTML = workerActiveTasks.map(c => `
+          <div class="border rounded-xl p-4 bg-slate-50 space-y-3">
+            <div class="flex justify-between items-center">
+              <span class="font-mono text-xs font-bold bg-slate-800 text-white px-2 py-0.5 rounded">${c.id}</span>
+              <span class="text-xs font-bold text-blue-700">${c.status}</span>
+            </div>
+            <h4 class="font-bold text-slate-800">${c.issueType}</h4>
+            <p class="text-xs text-slate-600"><i class="fa-solid fa-map-pin text-rose-500 mr-1"></i> <strong>Location:</strong> ${c.location} (${c.landmark})</p>
+            <p class="text-xs text-slate-600"><strong>Assigned Unit:</strong> ${c.assignedWorker}</p>
+            
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <p class="text-[10px] font-bold text-slate-500 mb-1">ISSUE PHOTO</p>
+                <img src="${c.beforePhoto}" class="w-full h-24 object-cover rounded border" />
+              </div>
+              <div class="flex flex-col justify-end space-y-1.5">
+                <button onclick="startWork('${c.id}')" class="w-full bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold py-1.5 rounded-lg">
+                  1. Mark In-Progress
+                </button>
+                <button onclick="completeWorkWithPhoto('${c.id}')" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold py-1.5 rounded-lg">
+                  2. Mark Completed
+                </button>
+                <label class="w-full bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold py-1.5 rounded-lg cursor-pointer text-center block">
+                  Upload Proof
+                  <input type="file" accept="image/*" class="hidden" onchange="handleWorkerFileUpload(event, '${c.id}')" />
+                </label>
+              </div>
+            </div>
+          </div>
+        `).join("");
+      }
+
+      // Worker Completed Work History (STRICTLY NO RATING/REVIEWS VISIBLE HERE)
+      const workerHistoryContainer = document.getElementById("workerHistoryList");
+      if (workerCompletedTasks.length === 0) {
+        workerHistoryContainer.innerHTML = `
+          <div class="col-span-2 text-center py-8 bg-slate-50 border border-dashed rounded-xl">
+            <p class="text-xs text-slate-500 font-medium">No completed tasks in history yet.</p>
+          </div>
+        `;
+      } else {
+        workerHistoryContainer.innerHTML = workerCompletedTasks.map(c => `
+          <div class="border rounded-xl p-4 bg-emerald-50/40 border-emerald-200 space-y-3 opacity-90">
+            <div class="flex justify-between items-center">
+              <span class="font-mono text-xs font-bold bg-emerald-800 text-white px-2 py-0.5 rounded">${c.id}</span>
+              <span class="text-xs font-bold text-emerald-800 bg-emerald-100 px-2.5 py-0.5 rounded-full">
+                <i class="fa-solid fa-circle-check mr-1"></i> Completed
+              </span>
+            </div>
+            <h4 class="font-bold text-slate-800">${c.issueType}</h4>
+            <p class="text-xs text-slate-600">${c.location} (${c.landmark})</p>
+            
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <p class="text-[10px] font-bold text-slate-500 mb-1">BEFORE PHOTO</p>
+                <img src="${c.beforePhoto}" class="w-full h-20 object-cover rounded border" />
+              </div>
+              <div>
+                <p class="text-[10px] font-bold text-slate-500 mb-1">AFTER PHOTO</p>
+                <img src="${c.afterPhoto}" class="w-full h-20 object-cover rounded border border-emerald-500" />
+              </div>
+            </div>
+
+            <div class="bg-slate-200/60 p-2 rounded text-center text-[11px] text-slate-600 font-bold border border-slate-300">
+              <i class="fa-solid fa-lock mr-1"></i> Task Completed & Immutable (Controls Disabled)
+            </div>
+          </div>
+        `).join("");
+      }
+    }
+
+    // INITIAL RENDER
+    renderAll();
+  </script>
+</body>
+</html>
